@@ -8,18 +8,127 @@ output:
 
 ## Loading and preprocessing the data
 
-
+The following code reads the activations.csv data and changes the class ofdate column to Date.
+```{r}
+data <- read.csv("activity.csv")  
+data$date <- as.Date(data$date, format = "%Y-%m-%d")  
+```
 
 ## What is mean total number of steps taken per day?
 
+```{r}
+dates <- unique(data$date)
+i <- 0
+steps_per_day <- vector("numeric")
 
+for (date in dates) {
+  i <- i + 1
+  steps_per_day[i] <- sum(data$steps[data$date == date], na.rm = TRUE)
+}
+
+mean_steps <- mean(steps_per_day, na.rm = TRUE)
+median_steps <- median(steps_per_day, na.rm = TRUE)
+hist(steps_per_day, main = "Histogram of number of steps per day", xlab = "Number of steps", breaks = 20)
+abline(v = mean_steps, col = "red")
+abline(v = median_steps, col = "blue")
+legend("topright", legend = c("median", "mean"), lwd = c(1, 1), col = c("blue", "red"))
+
+```
+
+Mean of total number of steps taken per day is `r as.integer(mean_steps)` and median `r as.integer(median_steps)`
 
 ## What is the average daily activity pattern?
 
+In order to answer the question we first need to count the average number of steps in eah interval. The following code does so and saves the results in avg_steps_in_interval variable.
 
+```{r}
+intervals <- unique(data$interval)
+i <- 0
+avg_steps_in_interval <- vector("numeric")
+
+for (int in intervals) {
+  i <- i + 1
+  avg_steps_in_interval[i] <- mean(data$steps[data$interval ==int], na.rm = TRUE)
+}
+```
+
+Next step is to create a line plot presenting average number of steps in each interval.  
+
+```{r}
+plot(y = avg_steps_in_interval,x = intervals, type = "l", main = "Average daily activity pattern", xlab = "Interval", ylab = "Number of steps")  
+```  
+
+The plot shows that there is one pick during the day when the average number of steps is the highest. It the interval at 8:35 - it's probaly due to the fact that people often are on their go to work at that hour.  
+In order to count the pick interval you can use the following code.
+
+```{r, results = "hide"}
+max_steps <- max(avg_steps_in_interval, na.rm = TRUE)
+intervals[avg_steps_in_interval == max_steps]
+
+```
 
 ## Imputing missing values
 
+```{r, results = "hide"}
+sum(is.na(data$steps))
 
+data_no_NA <- data.frame(data$date, data$interval)
+colnames(data_no_NA) <- c("date", "interval")
+
+for (i in 1:length(data$steps)) {
+  if (is.na(data$steps[i])) {
+    data_no_NA$steps[i] = avg_steps_in_interval[data$interval[i] == intervals]
+  }
+  else {data_no_NA$steps[i] = data$steps[i]}
+}
+
+i <- 0
+steps_per_day_no_NA <- vector("numeric")
+
+for (date in dates) {
+  i <- i + 1
+  steps_per_day_no_NA[i] <- sum(data_no_NA$steps[data_no_NA$date == date], na.rm = FALSE)
+  
+mean_steps_no_NA <- mean(steps_per_day_no_NA, na.rm = FALSE)
+median_steps_no_NA <- median(steps_per_day_no_NA, na.rm = FALSE)
+}
+```
+Total number of missing values is `r sum(is.na(data$steps))`. Each missing value was replaced by the average number of steps for the interval. Mean and median of total number of steps taken per day are the same and they are both equal `r as.integer(mean_steps_no_NA)`. The values are presented on the following histogram.
+
+```{r}
+hist(steps_per_day_no_NA, main = "Histogram of number of steps per day", xlab = "Number of steps", breaks = 20)
+abline(v = mean_steps_no_NA, col = "red")
+abline(v = median_steps_no_NA, col = "blue")
+legend("topright", legend = c("median = mean"), lwd = 1, col = "blue")
+```
 
 ## Are there differences in activity patterns between weekdays and weekends?
+
+```{r}
+weekend <- vector("character")
+
+for (i in 1:length(data_no_NA$date)) {
+  if (weekdays(data_no_NA$date[i]) == "sobota" | weekdays(data_no_NA$date[i]) == "niedziela") {
+    weekend[i] <- "weekend"
+  }
+  else {weekend[i] <- "weekday"}
+}
+
+weekend <- as.factor(weekend)
+
+i <- 0
+avg_steps_in_interval_weekday <- vector("numeric")
+avg_steps_in_interval_weekend <- vector("numeric")
+
+for (int in intervals) {
+  i <- i + 1
+  avg_steps_in_interval_weekday[i] <- mean(data$steps[data_no_NA$interval ==int & weekend == "weekday"], na.rm = TRUE)
+  avg_steps_in_interval_weekend[i] <- mean(data$steps[data_no_NA$interval ==int & weekend == "weekend"], na.rm = TRUE)
+}
+
+par(mfrow = c(2, 1))
+plot(avg_steps_in_interval_weekday, type = "l", col = "blue", xlab = "Interval", ylab = "Number of steps", main = "Weekday")
+plot(avg_steps_in_interval_weekend, type = "l", col = "blue", xlab = "Interval", ylab = "Number of steps", main = "Weekend")
+```
+
+Yes, there are differences in activity pattern between weekdays and weekends.Generally on a weekday there is one pick of activity about 8:35, and on weekends the activity pattern doesn't have one period with the activity so much higher than in other periods.
